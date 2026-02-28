@@ -79,6 +79,31 @@ export default function MainScreen() {
 
     // ─── file helpers ────────────────────────────────────────────────────────
 
+    const normalizeUri = (uri: string): string => {
+        // Remove trailing slashes and normalize the URI for comparison
+        return uri.replace(/\/$/, "").toLowerCase();
+    };
+
+    const isDuplicate = (
+        newFile: SelectedFile,
+        existingFile: SelectedFile,
+    ): boolean => {
+        // Check by URI first (most reliable)
+        if (normalizeUri(newFile.uri) === normalizeUri(existingFile.uri)) {
+            return true;
+        }
+        // Also check by name and size to catch duplicates with different URIs
+        if (
+            newFile.name.toLowerCase() === existingFile.name.toLowerCase() &&
+            newFile.size &&
+            existingFile.size &&
+            newFile.size === existingFile.size
+        ) {
+            return true;
+        }
+        return false;
+    };
+
     const addFiles = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -91,10 +116,17 @@ export default function MainScreen() {
                 uri: a.uri,
                 size: a.size ?? undefined,
             }));
-            setFiles((prev) => [
-                ...prev,
-                ...incoming.filter((f) => !prev.some((p) => p.uri === f.uri)),
-            ]);
+            const uniqueFiles = incoming.filter(
+                (f) => !files.some((p) => isDuplicate(f, p)),
+            );
+            const duplicateCount = incoming.length - uniqueFiles.length;
+            if (duplicateCount > 0) {
+                Alert.alert(
+                    "Duplicate files",
+                    `${duplicateCount} file(s) were already added and were skipped.`,
+                );
+            }
+            setFiles((prev) => [...prev, ...uniqueFiles]);
         } catch (e: any) {
             Alert.alert("Error", e?.message ?? String(e));
         }
@@ -121,10 +153,17 @@ export default function MainScreen() {
                 uri: a.uri,
                 size: a.fileSize ?? undefined,
             }));
-            setFiles((prev) => [
-                ...prev,
-                ...incoming.filter((f) => !prev.some((p) => p.uri === f.uri)),
-            ]);
+            const uniqueFiles = incoming.filter(
+                (f) => !files.some((p) => isDuplicate(f, p)),
+            );
+            const duplicateCount = incoming.length - uniqueFiles.length;
+            if (duplicateCount > 0) {
+                Alert.alert(
+                    "Duplicate files",
+                    `${duplicateCount} file(s) were already added and were skipped.`,
+                );
+            }
+            setFiles((prev) => [...prev, ...uniqueFiles]);
         } catch (e: any) {
             Alert.alert("Error", e?.message ?? String(e));
         }
@@ -799,7 +838,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
-        paddingVertical: 4,
+        paddingVertical: 8,
         paddingHorizontal: 8,
         backgroundColor: "#1a0a0a",
         borderRadius: 6,
@@ -808,7 +847,7 @@ const styles = StyleSheet.create({
     },
     clearAllText: {
         color: "#c0392b",
-        fontSize: 11,
+        fontSize: 14,
         fontWeight: "600",
     },
     removeBtn: {
@@ -831,7 +870,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: "#222",
-        paddingVertical: 10,
+        paddingVertical: 14,
     },
     addBtnText: {
         color: "#ccc",
@@ -845,7 +884,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: "#252525",
-        paddingVertical: 14,
+        paddingVertical: 18,
         alignItems: "center",
     },
     actionBtnDisabled: {
@@ -909,7 +948,7 @@ const styles = StyleSheet.create({
     },
     typeBtn: {
         flex: 1,
-        paddingVertical: 9,
+        paddingVertical: 13,
         alignItems: "center",
         borderRadius: 6,
     },
@@ -986,7 +1025,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     modalBtn: {
-        paddingVertical: 13,
+        paddingVertical: 17,
         borderRadius: 8,
         alignItems: "center",
     },

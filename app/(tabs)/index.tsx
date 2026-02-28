@@ -128,13 +128,13 @@ const styles = StyleSheet.create({
         right: 20,
     },
     button: {
-        paddingVertical: 12,
+        paddingVertical: 16,
         paddingHorizontal: 32,
         borderRadius: 12,
         backgroundColor: "#111",
         borderWidth: 1,
         borderColor: "#222",
-        height: 75,
+        height: 82,
         justifyContent: "center",
     },
     buttonText: {
