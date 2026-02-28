@@ -1,7 +1,9 @@
 import { ConfigSection } from "@/components/config-section";
 import { FileListSection } from "@/components/file-list-section";
+import { LoadingModal } from "@/components/loading-modal";
 import { ReplaceModal } from "@/components/replace-modal";
 import { SuccessModal, type SuccessInfo } from "@/components/success-modal";
+import { ValidationModal } from "@/components/validation-modal";
 import { useAppTheme } from "@/hooks/use-app-theme";
 import {
     checkArchiveExists,
@@ -39,6 +41,11 @@ export default function MainScreen() {
     const [archiveName, setArchiveName] = useState("");
     const [destination, setDestination] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [showValidationModal, setShowValidationModal] = useState(false);
+    const [validationContent, setValidationContent] = useState({
+        title: "",
+        message: "",
+    });
     const [showReplaceModal, setShowReplaceModal] = useState(false);
     const [nextAvailableName, setNextAvailableName] = useState("");
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -198,17 +205,25 @@ export default function MainScreen() {
         }
     };
 
+    const showValidation = (title: string, message: string) => {
+        setValidationContent({ title, message });
+        setShowValidationModal(true);
+    };
+
     const makeArchive = async () => {
         if (!archiveName.trim()) {
-            Alert.alert("Missing name", "Please enter a name for the archive.");
+            showValidation(
+                "Missing name",
+                "Please enter a name for the archive.",
+            );
             return;
         }
         if (files.length === 0) {
-            Alert.alert("No files", "Please add at least one file.");
+            showValidation("No files", "Please add at least one file.");
             return;
         }
         if (!destination) {
-            Alert.alert(
+            showValidation(
                 "No destination",
                 "Please select a destination folder.",
             );
@@ -305,6 +320,16 @@ export default function MainScreen() {
                 colors={colors}
                 onDismiss={() => setShowSuccessModal(false)}
             />
+
+            <ValidationModal
+                visible={showValidationModal}
+                title={validationContent.title}
+                message={validationContent.message}
+                colors={colors}
+                onDismiss={() => setShowValidationModal(false)}
+            />
+
+            <LoadingModal visible={isLoading} colors={colors} />
         </SafeAreaView>
     );
 }
