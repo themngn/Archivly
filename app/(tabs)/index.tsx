@@ -1,63 +1,85 @@
-import { Image } from "expo-image";
-import { Platform, StyleSheet } from "react-native";
-
-import { HelloWave } from "@/components/hello-wave";
-import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function HomeScreen() {
+interface HomeScreenProps {
+    onGetStarted?: () => void;
+}
+
+export default function HomeScreen({ onGetStarted }: HomeScreenProps) {
     return (
-        <ParallaxScrollView
-            headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
-            headerImage={
-                <Image
-                    source={require("@/assets/images/partial-react-logo.png")}
-                    style={styles.reactLogo}
-                />
-            }
-        >
-            <ThemedView style={styles.titleContainer}>
-                <ThemedText type="title">Welcome!</ThemedText>
-                <HelloWave />
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: "#000" }]}>
+            <ThemedView style={styles.container}>
+                <ThemedView style={styles.titleContainer}>
+                    <ThemedText
+                        style={styles.mainTitle}
+                        adjustsFontSizeToFit
+                        numberOfLines={1}
+                    >
+                        ARCHIVLY
+                    </ThemedText>
+                </ThemedView>
+                <Pressable style={[styles.button]} onPress={onGetStarted}>
+                    <ThemedText
+                        lightColor="#fff"
+                        darkColor="#fff"
+                        style={styles.buttonText}
+                    >
+                        Get Started
+                    </ThemedText>
+                </Pressable>
             </ThemedView>
-            <ThemedView style={styles.stepContainer}>
-                <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-                <ThemedText>
-                    Edit{" "}
-                    <ThemedText type="defaultSemiBold">
-                        app/(tabs)/index.tsx
-                    </ThemedText>{" "}
-                    to see changes. Press{" "}
-                    <ThemedText type="defaultSemiBold">
-                        {Platform.select({
-                            ios: "cmd + d",
-                            android: "cmd + m",
-                            web: "F12",
-                        })}
-                    </ThemedText>{" "}
-                    to open developer tools.
-                </ThemedText>
-            </ThemedView>
-        </ParallaxScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    titleContainer: {
-        flexDirection: "row",
+    safeArea: {
+        flex: 1,
+    },
+    container: {
+        flex: 1,
+        justifyContent: "center",
         alignItems: "center",
-        gap: 8,
+        paddingHorizontal: 0,
+        backgroundColor: "#000",
     },
-    stepContainer: {
-        gap: 8,
-        marginBottom: 8,
+    titleContainer: {
+        width: "100%",
+        alignItems: "stretch",
+        backgroundColor: "transparent",
+        paddingBottom: 200,
     },
-    reactLogo: {
-        height: 178,
-        width: 290,
-        bottom: 0,
-        left: 0,
+    mainTitle: {
+        fontSize: 200,
+        fontWeight: "900",
+        lineHeight: 400,
+        fontFamily: "System",
+        width: "100%",
+        textAlign: "center",
+        letterSpacing: 2,
+        color: "#888",
+        transform: [{ scaleY: 9 }],
+    },
+    button: {
         position: "absolute",
+        bottom: 20,
+        left: 20,
+        right: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 32,
+        borderRadius: 8,
+        backgroundColor: "#111",
+        height: 75,
+        justifyContent: "center",
+    },
+    buttonText: {
+        fontSize: 24,
+        fontWeight: "600",
+        //colors
+        color: "#fff",
+        //in the middle of the button
+        textAlign: "center",
     },
 });
