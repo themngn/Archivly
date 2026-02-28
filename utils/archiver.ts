@@ -264,6 +264,7 @@ export async function findAvailableName(
 }
 
 /**
+ * Creates an archive of the given files in the specified format, and saves
  * it to `destinationUri`.
  *
  * @returns The URI of the created archive file.

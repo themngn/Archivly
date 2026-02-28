@@ -1,50 +1,29 @@
-# Welcome to your Expo app 👋
+# Archivly
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native / Expo app for creating archives (ZIP, TAR, TAR.GZ) from files and media on your device.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Select files and media from your device
+- Choose archive format: `.zip`, `.tar`, or `.tar.gz`
+- Pick a destination folder (Android SAF / iOS Documents)
+- Handles duplicate detection and file-exists conflicts
 
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-2. Start the app
+1. Install dependencies:
 
-   ```bash
-   npx expo start
-   ```
+    ```bash
+    npm install
+    ```
 
-In the output, you'll find options to open the app in a
+2. Start the app:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+    ```bash
+    npx expo start
+    ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+3. Open on a device or emulator:
+    - Press `a` for Android emulator
+    - Press `i` for iOS simulator
+    - Scan the QR code with Expo Go
