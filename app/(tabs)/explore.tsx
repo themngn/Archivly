@@ -1,19 +1,29 @@
-import { ArchiveType, SelectedFile, createArchive } from "@/utils/archiver";
+import {
+    ArchiveType,
+    SelectedFile,
+    checkArchiveExists,
+    createArchive,
+    findAvailableName,
+} from "@/utils/archiver";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import { StorageAccessFramework } from "expo-file-system/legacy";
+import {
+    StorageAccessFramework,
+    documentDirectory,
+} from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,8 +32,17 @@ export default function MainScreen() {
     const [files, setFiles] = useState<SelectedFile[]>([]);
     const [archiveType, setArchiveType] = useState<ArchiveType>("zip");
     const [archiveName, setArchiveName] = useState("");
-    const [destination, setDestination] = useState("App Documents/");
+    const [destination, setDestination] = useState(documentDirectory ?? "");
     const [isLoading, setIsLoading] = useState(false);
+    const [showReplaceModal, setShowReplaceModal] = useState(false);
+    const [nextAvailableName, setNextAvailableName] = useState("");
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [successInfo, setSuccessInfo] = useState({
+        name: "",
+        path: "",
+        type: "",
+        count: 0,
+    });
 
     // ─── file helpers ────────────────────────────────────────────────────────
 
@@ -115,19 +134,43 @@ export default function MainScreen() {
             return;
         }
 
+        const exists = await checkArchiveExists(
+            archiveName,
+            archiveType,
+            destination,
+        );
+        if (exists) {
+            const avail = await findAvailableName(
+                archiveName,
+                archiveType,
+                destination,
+            );
+            setNextAvailableName(avail);
+            setShowReplaceModal(true);
+            return;
+        }
+        await doCreateArchive();
+    };
+
+    const doCreateArchive = async (nameOverride?: string, replace = false) => {
         setIsLoading(true);
         try {
             const savedUri = await createArchive(
                 files,
                 archiveType,
-                archiveName,
+                nameOverride ?? archiveName,
                 destination,
+                replace,
             );
             const displayPath = formatDestination(savedUri);
-            Alert.alert(
-                "Archive created",
-                `📦 ${archiveName.trim()}.${archiveType}\n\nType: ${archiveType.toUpperCase()}\nSaved to: ${displayPath}\nFiles: ${files.length} file${files.length !== 1 ? "s" : ""}`,
-            );
+            const usedName = nameOverride ?? archiveName.trim();
+            setSuccessInfo({
+                name: `${usedName}.${archiveType}`,
+                path: displayPath,
+                type: archiveType.toUpperCase(),
+                count: files.length,
+            });
+            setShowSuccessModal(true);
         } catch (e: any) {
             Alert.alert("Error", e?.message ?? String(e));
         } finally {
@@ -136,7 +179,12 @@ export default function MainScreen() {
     };
 
     const formatDestination = (uri: string): string => {
-        if (!uri) return "App Documents/";
+        if (!uri) return "Documents";
+        // Treat the default app documents directory as "Documents"
+        if (documentDirectory && uri === documentDirectory) return "Documents";
+        if (documentDirectory && uri.startsWith(documentDirectory)) {
+            return "Documents/" + uri.slice(documentDirectory.length);
+        }
         try {
             if (uri.startsWith("content://")) {
                 // Extract the tree path from the raw encoded URI so that
@@ -177,15 +225,11 @@ export default function MainScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
-            >
+            <View style={styles.content}>
                 <Text style={styles.screenTitle}>New Archive</Text>
 
                 {/* ── STEP 1: select files ── */}
-                <View style={styles.section}>
+                <View style={[styles.section, activeStep === 1 && { flex: 1 }]}>
                     <Pressable
                         style={styles.sectionHeader}
                         onPress={() => setActiveStep(1)}
@@ -201,39 +245,33 @@ export default function MainScreen() {
                     </Pressable>
 
                     {activeStep === 1 && (
-                        <View style={styles.sectionBody}>
-                            {/* add buttons */}
-                            <View style={styles.addRow}>
-                                <Pressable
-                                    style={styles.addBtn}
-                                    onPress={addFiles}
-                                >
-                                    <Ionicons
-                                        name="folder-open-outline"
-                                        size={15}
-                                        color="#ccc"
-                                    />
-                                    <Text style={styles.addBtnText}>
-                                        add files
-                                    </Text>
-                                </Pressable>
-                                <Pressable
-                                    style={styles.addBtn}
-                                    onPress={addMedia}
-                                >
-                                    <Ionicons
-                                        name="images-outline"
-                                        size={15}
-                                        color="#ccc"
-                                    />
-                                    <Text style={styles.addBtnText}>
-                                        add media
-                                    </Text>
-                                </Pressable>
-                            </View>
-
+                        <View style={[styles.sectionBody, { flex: 1 }]}>
                             {/* file list */}
-                            <View style={styles.fileList}>
+                            {files.length > 0 && (
+                                <View style={styles.fileListHeader}>
+                                    <Text style={styles.fileListCount}>
+                                        {files.length} file
+                                        {files.length !== 1 ? "s" : ""}
+                                    </Text>
+                                    <Pressable
+                                        style={styles.clearAllBtn}
+                                        onPress={() => setFiles([])}
+                                    >
+                                        <Ionicons
+                                            name="trash-outline"
+                                            size={13}
+                                            color="#c0392b"
+                                        />
+                                        <Text style={styles.clearAllText}>
+                                            remove all
+                                        </Text>
+                                    </Pressable>
+                                </View>
+                            )}
+                            <ScrollView
+                                style={styles.fileList}
+                                contentContainerStyle={styles.fileListContent}
+                            >
                                 {files.length === 0 ? (
                                     <Text style={styles.emptyText}>
                                         No files selected
@@ -265,18 +303,48 @@ export default function MainScreen() {
                                                 onPress={() =>
                                                     removeFile(file.uri)
                                                 }
-                                                hitSlop={8}
+                                                hitSlop={12}
                                                 style={styles.removeBtn}
                                             >
                                                 <Ionicons
-                                                    name="close"
-                                                    size={14}
-                                                    color="#444"
+                                                    name="close-circle"
+                                                    size={20}
+                                                    color="#c0392b"
                                                 />
                                             </Pressable>
                                         </View>
                                     ))
                                 )}
+                            </ScrollView>
+
+                            {/* add buttons */}
+                            <View style={styles.addRow}>
+                                <Pressable
+                                    style={styles.addBtn}
+                                    onPress={addFiles}
+                                >
+                                    <Ionicons
+                                        name="folder-open-outline"
+                                        size={15}
+                                        color="#ccc"
+                                    />
+                                    <Text style={styles.addBtnText}>
+                                        add files
+                                    </Text>
+                                </Pressable>
+                                <Pressable
+                                    style={styles.addBtn}
+                                    onPress={addMedia}
+                                >
+                                    <Ionicons
+                                        name="images-outline"
+                                        size={15}
+                                        color="#ccc"
+                                    />
+                                    <Text style={styles.addBtnText}>
+                                        add media
+                                    </Text>
+                                </Pressable>
                             </View>
 
                             {/* next step */}
@@ -433,7 +501,131 @@ export default function MainScreen() {
                         </View>
                     )}
                 </View>
-            </ScrollView>
+            </View>
+
+            {/* ── replace-file modal ── */}
+            <Modal
+                visible={showReplaceModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowReplaceModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <View style={styles.modalIconRow}>
+                            <Ionicons
+                                name="warning-outline"
+                                size={28}
+                                color="#e67e22"
+                            />
+                        </View>
+                        <Text style={styles.modalTitle}>
+                            File already exists
+                        </Text>
+                        <Text style={styles.modalMessage}>
+                            {`${archiveName.trim()}.${archiveType}`} already
+                            exists in the destination.
+                        </Text>
+                        <View style={styles.modalActions}>
+                            <Pressable
+                                style={[
+                                    styles.modalBtn,
+                                    styles.modalBtnReplace,
+                                ]}
+                                onPress={() => {
+                                    setShowReplaceModal(false);
+                                    doCreateArchive(undefined, true);
+                                }}
+                            >
+                                <Text style={styles.modalBtnReplaceText}>
+                                    Replace
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                style={[styles.modalBtn, styles.modalBtnRename]}
+                                onPress={() => {
+                                    setShowReplaceModal(false);
+                                    doCreateArchive(nextAvailableName);
+                                }}
+                            >
+                                <Text style={styles.modalBtnRenameText}>
+                                    Create as {nextAvailableName}.{archiveType}
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                style={[styles.modalBtn, styles.modalBtnCancel]}
+                                onPress={() => setShowReplaceModal(false)}
+                            >
+                                <Text style={styles.modalBtnCancelText}>
+                                    Cancel
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ── success modal ── */}
+            <Modal
+                visible={showSuccessModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowSuccessModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <View style={styles.modalIconRow}>
+                            <Ionicons
+                                name="checkmark-circle"
+                                size={40}
+                                color="#27ae60"
+                            />
+                        </View>
+                        <Text style={styles.modalTitle}>Archive created</Text>
+                        <Text style={styles.successFileName}>
+                            {successInfo.name}
+                        </Text>
+                        <View style={styles.successMeta}>
+                            <View style={styles.successRow}>
+                                <Text style={styles.successLabel}>Type</Text>
+                                <Text style={styles.successValue}>
+                                    {successInfo.type}
+                                </Text>
+                            </View>
+                            <View style={styles.successRow}>
+                                <Text style={styles.successLabel}>
+                                    Saved to
+                                </Text>
+                                <Text
+                                    style={styles.successValue}
+                                    numberOfLines={2}
+                                >
+                                    {successInfo.path}
+                                </Text>
+                            </View>
+                            <View style={styles.successRow}>
+                                <Text style={styles.successLabel}>Files</Text>
+                                <Text style={styles.successValue}>
+                                    {successInfo.count}
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.modalActions}>
+                            <Pressable
+                                style={[
+                                    styles.modalBtn,
+                                    styles.modalBtnSuccess,
+                                ]}
+                                onPress={() => setShowSuccessModal(false)}
+                            >
+                                <Text style={styles.modalBtnSuccessText}>
+                                    Done
+                                </Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -443,13 +635,10 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#000",
     },
-    scroll: {
-        flex: 1,
-    },
     content: {
+        flex: 1,
         padding: 16,
         gap: 12,
-        flexGrow: 1,
     },
 
     // screen title
@@ -501,7 +690,9 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: "#1a1a1a",
-        minHeight: 200,
+        flex: 1,
+    },
+    fileListContent: {
         padding: 10,
         gap: 6,
     },
@@ -527,9 +718,38 @@ const styles = StyleSheet.create({
         marginLeft: 6,
         marginRight: 4,
     },
+    fileListHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 2,
+    },
+    fileListCount: {
+        color: "#444",
+        fontSize: 11,
+        fontWeight: "600",
+        letterSpacing: 0.8,
+        textTransform: "uppercase",
+    },
+    clearAllBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        backgroundColor: "#1a0a0a",
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: "#3a1010",
+    },
+    clearAllText: {
+        color: "#c0392b",
+        fontSize: 11,
+        fontWeight: "600",
+    },
     removeBtn: {
-        padding: 2,
-        marginLeft: 4,
+        padding: 4,
+        marginLeft: 6,
     },
 
     // add buttons
@@ -653,5 +873,123 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontFamily: "monospace",
         paddingLeft: 2,
+    },
+
+    // replace modal
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.75)",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 32,
+    },
+    modalBox: {
+        width: "100%",
+        backgroundColor: "#111",
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: "#2a2a2a",
+        padding: 24,
+        gap: 12,
+    },
+    modalIconRow: {
+        alignItems: "center",
+    },
+    modalTitle: {
+        color: "#e0e0e0",
+        fontSize: 17,
+        fontWeight: "700",
+        textAlign: "center",
+    },
+    modalMessage: {
+        color: "#777",
+        fontSize: 13,
+        lineHeight: 20,
+        textAlign: "center",
+    },
+    modalActions: {
+        flexDirection: "column",
+        gap: 8,
+        marginTop: 4,
+    },
+    modalBtn: {
+        paddingVertical: 13,
+        borderRadius: 8,
+        alignItems: "center",
+    },
+    modalBtnCancel: {
+        backgroundColor: "#1a1a1a",
+        borderWidth: 1,
+        borderColor: "#2a2a2a",
+    },
+    modalBtnCancelText: {
+        color: "#888",
+        fontSize: 15,
+        fontWeight: "600",
+    },
+    modalBtnReplace: {
+        backgroundColor: "#7a1a0a",
+        borderWidth: 1,
+        borderColor: "#a02010",
+    },
+    modalBtnReplaceText: {
+        color: "#ff6b55",
+        fontSize: 15,
+        fontWeight: "700",
+    },
+    modalBtnRename: {
+        backgroundColor: "#0a2a4a",
+        borderWidth: 1,
+        borderColor: "#1050a0",
+    },
+    modalBtnRenameText: {
+        color: "#5599ff",
+        fontSize: 15,
+        fontWeight: "600",
+    },
+    modalBtnSuccess: {
+        backgroundColor: "#0a3a1a",
+        borderWidth: 1,
+        borderColor: "#1a7a40",
+    },
+    modalBtnSuccessText: {
+        color: "#2ecc71",
+        fontSize: 15,
+        fontWeight: "700",
+    },
+    successFileName: {
+        color: "#e0e0e0",
+        fontSize: 15,
+        fontWeight: "600",
+        fontFamily: "monospace",
+        textAlign: "center",
+    },
+    successMeta: {
+        backgroundColor: "#080808",
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#1a1a1a",
+        padding: 12,
+        gap: 8,
+    },
+    successRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 12,
+    },
+    successLabel: {
+        color: "#444",
+        fontSize: 12,
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: 0.8,
+        paddingTop: 1,
+    },
+    successValue: {
+        color: "#999",
+        fontSize: 13,
+        flex: 1,
+        textAlign: "right",
     },
 });

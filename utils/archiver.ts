@@ -2,6 +2,7 @@ import {
     EncodingType,
     StorageAccessFramework,
     documentDirectory,
+    getInfoAsync,
     readAsStringAsync,
     writeAsStringAsync,
 } from "expo-file-system/legacy";
@@ -141,8 +142,30 @@ async function saveFile(
     fileName: string,
     mimeType: string,
     base64Data: string,
+    replace = false,
 ): Promise<string> {
     if (Platform.OS === "android" && destinationUri.startsWith("content://")) {
+        // If replacing, delete the existing file first so SAF doesn't auto-number
+        if (replace) {
+            try {
+                const entries =
+                    await StorageAccessFramework.readDirectoryAsync(
+                        destinationUri,
+                    );
+                for (const entry of entries) {
+                    const decoded = decodeURIComponent(entry);
+                    if (
+                        decoded.endsWith("/" + fileName) ||
+                        decoded.endsWith("%2F" + fileName)
+                    ) {
+                        await StorageAccessFramework.deleteAsync(entry);
+                        break;
+                    }
+                }
+            } catch {
+                // ignore – createFileAsync will still write the data
+            }
+        }
         const fileUri = await StorageAccessFramework.createFileAsync(
             destinationUri,
             fileName,
@@ -166,7 +189,81 @@ async function saveFile(
 // ── public API ───────────────────────────────────────────────────────────────
 
 /**
- * Creates a ZIP, TAR, or TAR.GZ archive from the supplied files and writes
+ * Returns true if an archive with the given name/type already exists at
+ * `destinationUri`. Always returns false for Android SAF content:// URIs
+ * because existence cannot be checked without listing the directory.
+ */
+export async function checkArchiveExists(
+    archiveName: string,
+    archiveType: ArchiveType,
+    destinationUri: string,
+): Promise<boolean> {
+    const fileName = `${archiveName.trim()}.${archiveType}`;
+
+    // Android SAF: list the directory and match by decoded filename
+    if (destinationUri.startsWith("content://")) {
+        try {
+            const entries =
+                await StorageAccessFramework.readDirectoryAsync(destinationUri);
+            return entries.some((entry) => {
+                try {
+                    const decoded = decodeURIComponent(entry);
+                    return (
+                        decoded.endsWith("/" + fileName) ||
+                        decoded.endsWith("%2F" + fileName)
+                    );
+                } catch {
+                    return entry.includes(fileName);
+                }
+            });
+        } catch {
+            return false;
+        }
+    }
+
+    // file:// paths (iOS / web / fallback)
+    const dir = destinationUri.endsWith("/")
+        ? destinationUri
+        : destinationUri + "/";
+    try {
+        const info = await getInfoAsync(dir + fileName);
+        return info.exists;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Finds the next available archive name by appending (1), (2), … until
+ * a filename that does not yet exist is found.
+ */
+export async function findAvailableName(
+    archiveName: string,
+    archiveType: ArchiveType,
+    destinationUri: string,
+): Promise<string> {
+    if (destinationUri.startsWith("content://")) {
+        return `${archiveName.trim()}(1)`;
+    }
+    const dir = destinationUri.endsWith("/")
+        ? destinationUri
+        : destinationUri + "/";
+    let counter = 1;
+    while (true) {
+        const candidate = `${archiveName.trim()}(${counter})`;
+        try {
+            const info = await getInfoAsync(
+                `${dir}${candidate}.${archiveType}`,
+            );
+            if (!info.exists) return candidate;
+        } catch {
+            return candidate;
+        }
+        counter++;
+    }
+}
+
+/**
  * it to `destinationUri`.
  *
  * @returns The URI of the created archive file.
@@ -176,6 +273,7 @@ export async function createArchive(
     archiveType: ArchiveType,
     archiveName: string,
     destinationUri: string,
+    replace = false,
 ): Promise<string> {
     if (files.length === 0) throw new Error("No files to archive.");
     if (!archiveName.trim()) throw new Error("Archive name is required.");
@@ -196,8 +294,8 @@ export async function createArchive(
         const tarBytes = await buildTar(files);
         const gzipped = gzip(tarBytes);
         base64Data = uint8ArrayToBase64(gzipped);
-        mimeType = "application/gzip";
+        mimeType = "application/octet-stream";
     }
 
-    return saveFile(destinationUri, fileName, mimeType, base64Data);
+    return saveFile(destinationUri, fileName, mimeType, base64Data, replace);
 }
