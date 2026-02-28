@@ -1,3 +1,4 @@
+import { ScalePressable } from "@/components/animated-pressable";
 import {
     ArchiveType,
     SelectedFile,
@@ -12,7 +13,7 @@ import {
     documentDirectory,
 } from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -25,12 +26,26 @@ import {
     TextInput,
     View,
 } from "react-native";
+import Animated, {
+    Easing,
+    FadeIn,
+    FadeOut,
+    LinearTransition,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const ARCHIVE_TYPES: ArchiveType[] = ["zip", "tar", "tar.gz"];
 
 export default function MainScreen() {
     const [activeStep, setActiveStep] = useState<1 | 2>(1);
     const [files, setFiles] = useState<SelectedFile[]>([]);
     const [archiveType, setArchiveType] = useState<ArchiveType>("zip");
+    const [toggleWidth, setToggleWidth] = useState(0);
+    const [sliderItemWidth, setSliderItemWidth] = useState(0);
+    const sliderX = useSharedValue(0);
     const [archiveName, setArchiveName] = useState("");
     const [destination, setDestination] = useState(documentDirectory ?? "");
     const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +58,24 @@ export default function MainScreen() {
         type: "",
         count: 0,
     });
+
+    // ─── slider animation ──────────────────────────────────────────────────────
+    useEffect(() => {
+        if (toggleWidth === 0) return;
+        const innerWidth = toggleWidth - 8; // subtract left+right padding (4+4)
+        const itemW = (innerWidth - 8) / 3; // subtract 2 gaps of 4
+        setSliderItemWidth(itemW);
+        const idx = ARCHIVE_TYPES.indexOf(archiveType);
+        sliderX.value = withTiming(idx * (itemW + 4), {
+            duration: 200,
+            easing: Easing.out(Easing.cubic),
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [archiveType, toggleWidth]);
+
+    const sliderStyle = useAnimatedStyle(() => ({
+        transform: [{ translateX: sliderX.value }],
+    }));
 
     // ─── file helpers ────────────────────────────────────────────────────────
 
@@ -225,11 +258,19 @@ export default function MainScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.content}>
+            <Animated.View
+                style={styles.content}
+                entering={FadeIn.duration(250)}
+            >
                 <Text style={styles.screenTitle}>New Archive</Text>
 
                 {/* ── STEP 1: select files ── */}
-                <View style={[styles.section, activeStep === 1 && { flex: 1 }]}>
+                <Animated.View
+                    layout={LinearTransition.duration(200).easing(
+                        Easing.out(Easing.cubic),
+                    )}
+                    style={[styles.section, activeStep === 1 && { flex: 1 }]}
+                >
                     <Pressable
                         style={styles.sectionHeader}
                         onPress={() => setActiveStep(1)}
@@ -245,15 +286,19 @@ export default function MainScreen() {
                     </Pressable>
 
                     {activeStep === 1 && (
-                        <View style={[styles.sectionBody, { flex: 1 }]}>
-                            {/* file list */}
+                        <Animated.View
+                            entering={FadeIn.duration(200)}
+                            exiting={FadeOut.duration(150)}
+                            style={[styles.sectionBody, { flex: 1 }]}
+                        >
+                            {/* file list header */}
                             {files.length > 0 && (
                                 <View style={styles.fileListHeader}>
                                     <Text style={styles.fileListCount}>
                                         {files.length} file
                                         {files.length !== 1 ? "s" : ""}
                                     </Text>
-                                    <Pressable
+                                    <ScalePressable
                                         style={styles.clearAllBtn}
                                         onPress={() => setFiles([])}
                                     >
@@ -265,9 +310,11 @@ export default function MainScreen() {
                                         <Text style={styles.clearAllText}>
                                             remove all
                                         </Text>
-                                    </Pressable>
+                                    </ScalePressable>
                                 </View>
                             )}
+
+                            {/* file list */}
                             <ScrollView
                                 style={styles.fileList}
                                 contentContainerStyle={styles.fileListContent}
@@ -278,8 +325,13 @@ export default function MainScreen() {
                                     </Text>
                                 ) : (
                                     files.map((file) => (
-                                        <View
+                                        <Animated.View
                                             key={file.uri}
+                                            entering={FadeIn.duration(180)}
+                                            exiting={FadeOut.duration(150)}
+                                            layout={LinearTransition.duration(
+                                                180,
+                                            )}
                                             style={styles.fileRow}
                                         >
                                             <Ionicons
@@ -299,7 +351,7 @@ export default function MainScreen() {
                                                     {formatSize(file.size)}
                                                 </Text>
                                             )}
-                                            <Pressable
+                                            <ScalePressable
                                                 onPress={() =>
                                                     removeFile(file.uri)
                                                 }
@@ -311,15 +363,15 @@ export default function MainScreen() {
                                                     size={20}
                                                     color="#c0392b"
                                                 />
-                                            </Pressable>
-                                        </View>
+                                            </ScalePressable>
+                                        </Animated.View>
                                     ))
                                 )}
                             </ScrollView>
 
                             {/* add buttons */}
                             <View style={styles.addRow}>
-                                <Pressable
+                                <ScalePressable
                                     style={styles.addBtn}
                                     onPress={addFiles}
                                 >
@@ -331,8 +383,8 @@ export default function MainScreen() {
                                     <Text style={styles.addBtnText}>
                                         add files
                                     </Text>
-                                </Pressable>
-                                <Pressable
+                                </ScalePressable>
+                                <ScalePressable
                                     style={styles.addBtn}
                                     onPress={addMedia}
                                 >
@@ -344,11 +396,11 @@ export default function MainScreen() {
                                     <Text style={styles.addBtnText}>
                                         add media
                                     </Text>
-                                </Pressable>
+                                </ScalePressable>
                             </View>
 
                             {/* next step */}
-                            <Pressable
+                            <ScalePressable
                                 style={[
                                     styles.actionBtn,
                                     files.length === 0 &&
@@ -361,13 +413,16 @@ export default function MainScreen() {
                                 <Text style={styles.actionBtnText}>
                                     Next step
                                 </Text>
-                            </Pressable>
-                        </View>
+                            </ScalePressable>
+                        </Animated.View>
                     )}
-                </View>
+                </Animated.View>
 
                 {/* ── STEP 2: destination ── */}
-                <View
+                <Animated.View
+                    layout={LinearTransition.duration(200).easing(
+                        Easing.out(Easing.cubic),
+                    )}
                     style={[
                         styles.section,
                         activeStep < 2 && styles.sectionLocked,
@@ -397,13 +452,17 @@ export default function MainScreen() {
                     </Pressable>
 
                     {activeStep === 2 && (
-                        <View style={styles.sectionBody}>
+                        <Animated.View
+                            entering={FadeIn.duration(200)}
+                            exiting={FadeOut.duration(150)}
+                            style={styles.sectionBody}
+                        >
                             {/* archive destination */}
                             <View style={styles.fieldGroup}>
                                 <Text style={styles.fieldLabel}>
                                     archive dest
                                 </Text>
-                                <Pressable
+                                <ScalePressable
                                     style={styles.destRow}
                                     onPress={pickDestination}
                                 >
@@ -421,7 +480,7 @@ export default function MainScreen() {
                                         size={14}
                                         color="#333"
                                     />
-                                </Pressable>
+                                </ScalePressable>
                             </View>
 
                             {/* archive type */}
@@ -429,21 +488,25 @@ export default function MainScreen() {
                                 <Text style={styles.fieldLabel}>
                                     select and type
                                 </Text>
-                                <View style={styles.typeToggle}>
-                                    {(
-                                        [
-                                            "zip",
-                                            "tar",
-                                            "tar.gz",
-                                        ] as ArchiveType[]
-                                    ).map((t) => (
-                                        <Pressable
+                                <View
+                                    style={styles.typeToggle}
+                                    onLayout={(e) =>
+                                        setToggleWidth(
+                                            e.nativeEvent.layout.width,
+                                        )
+                                    }
+                                >
+                                    <Animated.View
+                                        style={[
+                                            styles.typeSlider,
+                                            { width: sliderItemWidth },
+                                            sliderStyle,
+                                        ]}
+                                    />
+                                    {ARCHIVE_TYPES.map((t) => (
+                                        <ScalePressable
                                             key={t}
-                                            style={[
-                                                styles.typeBtn,
-                                                archiveType === t &&
-                                                    styles.typeBtnActive,
-                                            ]}
+                                            style={styles.typeBtn}
                                             onPress={() => setArchiveType(t)}
                                         >
                                             <Text
@@ -455,7 +518,7 @@ export default function MainScreen() {
                                             >
                                                 .{t}
                                             </Text>
-                                        </Pressable>
+                                        </ScalePressable>
                                     ))}
                                 </View>
                             </View>
@@ -482,9 +545,10 @@ export default function MainScreen() {
                             </View>
 
                             {/* make archive */}
-                            <Pressable
+                            <ScalePressable
                                 style={[
                                     styles.actionBtn,
+                                    styles.actionBtnAccent,
                                     isLoading && styles.actionBtnDisabled,
                                 ]}
                                 onPress={makeArchive}
@@ -497,11 +561,11 @@ export default function MainScreen() {
                                         Make archive
                                     </Text>
                                 )}
-                            </Pressable>
-                        </View>
+                            </ScalePressable>
+                        </Animated.View>
                     )}
-                </View>
-            </View>
+                </Animated.View>
+            </Animated.View>
 
             {/* ── replace-file modal ── */}
             <Modal
@@ -527,7 +591,7 @@ export default function MainScreen() {
                             exists in the destination.
                         </Text>
                         <View style={styles.modalActions}>
-                            <Pressable
+                            <ScalePressable
                                 style={[
                                     styles.modalBtn,
                                     styles.modalBtnReplace,
@@ -540,8 +604,8 @@ export default function MainScreen() {
                                 <Text style={styles.modalBtnReplaceText}>
                                     Replace
                                 </Text>
-                            </Pressable>
-                            <Pressable
+                            </ScalePressable>
+                            <ScalePressable
                                 style={[styles.modalBtn, styles.modalBtnRename]}
                                 onPress={() => {
                                     setShowReplaceModal(false);
@@ -551,15 +615,15 @@ export default function MainScreen() {
                                 <Text style={styles.modalBtnRenameText}>
                                     Create as {nextAvailableName}.{archiveType}
                                 </Text>
-                            </Pressable>
-                            <Pressable
+                            </ScalePressable>
+                            <ScalePressable
                                 style={[styles.modalBtn, styles.modalBtnCancel]}
                                 onPress={() => setShowReplaceModal(false)}
                             >
                                 <Text style={styles.modalBtnCancelText}>
                                     Cancel
                                 </Text>
-                            </Pressable>
+                            </ScalePressable>
                         </View>
                     </View>
                 </View>
@@ -611,7 +675,7 @@ export default function MainScreen() {
                             </View>
                         </View>
                         <View style={styles.modalActions}>
-                            <Pressable
+                            <ScalePressable
                                 style={[
                                     styles.modalBtn,
                                     styles.modalBtnSuccess,
@@ -621,7 +685,7 @@ export default function MainScreen() {
                                 <Text style={styles.modalBtnSuccessText}>
                                     Done
                                 </Text>
-                            </Pressable>
+                            </ScalePressable>
                         </View>
                     </View>
                 </View>
@@ -787,6 +851,10 @@ const styles = StyleSheet.create({
     actionBtnDisabled: {
         opacity: 0.3,
     },
+    actionBtnAccent: {
+        backgroundColor: "#1a1a1a",
+        borderColor: "#333",
+    },
     actionBtnText: {
         color: "#e0e0e0",
         fontSize: 15,
@@ -831,14 +899,19 @@ const styles = StyleSheet.create({
         padding: 4,
         gap: 4,
     },
+    typeSlider: {
+        position: "absolute",
+        top: 4,
+        left: 4,
+        bottom: 4,
+        backgroundColor: "#1e1e1e",
+        borderRadius: 6,
+    },
     typeBtn: {
         flex: 1,
         paddingVertical: 9,
         alignItems: "center",
         borderRadius: 6,
-    },
-    typeBtnActive: {
-        backgroundColor: "#1e1e1e",
     },
     typeBtnText: {
         color: "#444",
