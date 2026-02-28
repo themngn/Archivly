@@ -47,7 +47,7 @@ export default function MainScreen() {
     const [sliderItemWidth, setSliderItemWidth] = useState(0);
     const sliderX = useSharedValue(0);
     const [archiveName, setArchiveName] = useState("");
-    const [destination, setDestination] = useState(documentDirectory ?? "");
+    const [destination, setDestination] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [showReplaceModal, setShowReplaceModal] = useState(false);
     const [nextAvailableName, setNextAvailableName] = useState("");
@@ -205,6 +205,13 @@ export default function MainScreen() {
             Alert.alert("No files", "Please add at least one file.");
             return;
         }
+        if (!destination) {
+            Alert.alert(
+                "No destination",
+                "Please select a destination folder.",
+            );
+            return;
+        }
 
         const exists = await checkArchiveExists(
             archiveName,
@@ -251,7 +258,7 @@ export default function MainScreen() {
     };
 
     const formatDestination = (uri: string): string => {
-        if (!uri) return "Documents";
+        if (!uri) return "Tap to choose folder";
         // Treat the default app documents directory as "Documents"
         if (documentDirectory && uri === documentDirectory) return "Documents";
         if (documentDirectory && uri.startsWith(documentDirectory)) {
@@ -347,7 +354,7 @@ export default function MainScreen() {
                                             color="#c0392b"
                                         />
                                         <Text style={styles.clearAllText}>
-                                            remove all
+                                            Remove All
                                         </Text>
                                     </ScalePressable>
                                 </View>
@@ -420,7 +427,7 @@ export default function MainScreen() {
                                         color="#ccc"
                                     />
                                     <Text style={styles.addBtnText}>
-                                        add files
+                                        Add Files
                                     </Text>
                                 </ScalePressable>
                                 <ScalePressable
@@ -433,7 +440,7 @@ export default function MainScreen() {
                                         color="#ccc"
                                     />
                                     <Text style={styles.addBtnText}>
-                                        add media
+                                        Add Media
                                     </Text>
                                 </ScalePressable>
                             </View>
@@ -499,7 +506,7 @@ export default function MainScreen() {
                             {/* archive destination */}
                             <View style={styles.fieldGroup}>
                                 <Text style={styles.fieldLabel}>
-                                    archive dest
+                                    Archive Destination
                                 </Text>
                                 <ScalePressable
                                     style={styles.destRow}
@@ -511,7 +518,13 @@ export default function MainScreen() {
                                         color="#555"
                                         style={{ marginRight: 8 }}
                                     />
-                                    <Text style={styles.destText}>
+                                    <Text
+                                        style={[
+                                            styles.destText,
+                                            !destination &&
+                                                styles.destTextPlaceholder,
+                                        ]}
+                                    >
                                         {formatDestination(destination)}
                                     </Text>
                                     <Ionicons
@@ -525,7 +538,7 @@ export default function MainScreen() {
                             {/* archive type */}
                             <View style={styles.fieldGroup}>
                                 <Text style={styles.fieldLabel}>
-                                    select and type
+                                    Select Archive Type
                                 </Text>
                                 <View
                                     style={styles.typeToggle}
@@ -565,7 +578,7 @@ export default function MainScreen() {
                             {/* archive name */}
                             <View style={styles.fieldGroup}>
                                 <Text style={styles.fieldLabel}>
-                                    select and name
+                                    Select Archive Name
                                 </Text>
                                 <View style={styles.nameRow}>
                                     <TextInput
@@ -597,7 +610,7 @@ export default function MainScreen() {
                                     <ActivityIndicator color="#e0e0e0" />
                                 ) : (
                                     <Text style={styles.actionBtnText}>
-                                        Make archive
+                                        Make Archive
                                     </Text>
                                 )}
                             </ScalePressable>
@@ -926,6 +939,10 @@ const styles = StyleSheet.create({
         flex: 1,
         color: "#777",
         fontSize: 13,
+    },
+    destTextPlaceholder: {
+        color: "#444",
+        fontStyle: "italic",
     },
 
     // type toggle
